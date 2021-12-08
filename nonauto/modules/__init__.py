@@ -1,0 +1,1 @@
+import nonauto.modules.capsule
