@@ -83,14 +83,17 @@ class MREDER(NATransformerModel):
             "--apply-bert-init", action="store_true",
             help="use custom param initialization for BERT")
         parser.add_argument(
-            "--self-attention-type", default="normal", choice=["normal", "relative"],
+            "--self-attention-type", default="normal", choices=["normal", "relative"],
             help="self attention type")
         parser.add_argument(
-            "--out-norm-type", type=str, default="actnorm", choice=["layernorm", "actnorm"],
+            "--out-norm-type", type=str, default="actnorm", choices=["layernorm", "actnorm"],
             help="how to perform feature normalization for decoder output")
         parser.add_argument(
             "--upsampling", type=int, metavar='N', default=1,
             help="upsampling ratio")
+        parser.add_argument(
+            "--ctc-loss", action="store_true", default=False,
+            help="enable fba loss")
         parser.add_argument(
             "--fba-loss", action="store_true", default=False,
             help="enable fba loss")
@@ -107,7 +110,7 @@ class MREDER(NATransformerModel):
             "--lang-adv-loss", action="store_true", default=False,
             help="enable language adversarial loss")
         parser.add_argument(
-            "--layer-norm-type", type=str, default="prenorm", choice=["prenorm", "sandwich"],
+            "--layer-norm-type", type=str, default="prenorm", choices=["prenorm", "sandwich"],
             help="layer norm type")
         parser.add_argument(
             "--pretrained-checkpoint", type=str,
@@ -135,8 +138,8 @@ class MREDER(NATransformerModel):
         self._eval_lang_pair = None
         self._reversed = False
 
-        self.enable_fba = False
-        self.enable_echo_bt = False
+        self.enable_fba_loss = False
+        self.enable_cycle_loss = False
 
         self._build_dictionaries_and_embeds()
         self._build_output_projections()
@@ -334,7 +337,7 @@ class MREDER(NATransformerModel):
         encoder_out = self.encoder.forward(
             inp, emb, padding_mask,
             src_lang=sl, tgt_lang=tl,
-            return_all_hiddens=self.args.fba
+            return_all_hiddens=self.args.fba_loss
         )
 
         return encoder_out
@@ -363,7 +366,7 @@ class MREDER(NATransformerModel):
         net_output, extras = self._forward(
             src_tokens=src_tokens, tgt_tokens=tgt_tokens)
 
-        if self.args.fba and self.enable_fba:
+        if self.args.fba_loss and self.enable_fba_loss:
             fba_loss = self._compute_fba_loss(
                 src_tokens, tgt_tokens, extras["logits"], extras["encoder_out"])
             net_output["fba_cos"] = {"loss": fba_loss, "factor": 0.5}
@@ -380,7 +383,7 @@ class MREDER(NATransformerModel):
 
     # forward-backward agreement loss #
     def _build_fba_predictors(self):
-        if self.args.fba:
+        if self.args.fba_loss:
             self.fba_loss_fn = cos_distance_loss
             embed_dim = self.args.encoder_embed_dim
             # self.predictors = nn.ModuleList([
@@ -656,6 +659,9 @@ class MREDER(NATransformerModel):
     def upgrade_state_dict_named(self, state_dict, name):
         return state_dict
 
+    def max_positions(self):
+        return (self.args.max_source_positions, self.args.max_target_positions)
+
 
 class RevTransformerEncoder(TransformerEncoder):
     def __init__(self, args, dictionary, embed_tokens, langs):
@@ -813,6 +819,7 @@ def base_architecture(args):
     args.encoder_normalize_before = getattr(args, "encoder_normalize_before", True)
     args.self_attention_type = getattr(args, "self_attention_type", "relative")
     args.upsampling = getattr(args, "upsampling", 2)
+    args.ctc_loss = getattr(args, 'ctc_loss', True)
 
 
 

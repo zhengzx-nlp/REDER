@@ -1,15 +1,15 @@
 #! /bin/bash
-code="`pwd`/.."
+cd $(dirname $0)
+code=..
 
 data_bin=/path/to/data-bin/iwslt14.tokenized.distil.de-en
 lang_pairs=de-en,en-de
-arch="REDER_iwslt_de_en"
+arch="mREDER_iwslt_de_en"
 
 extra_args=(
     --upsampling 2 
     --self-attention-type relative
     --out-norm-type actnorm 
-    --feature-shuffle 
     --max-tokens 8192  --update-freq 2 
 )
 
@@ -28,7 +28,7 @@ python ${code}/train.py --fp16 \
     --save-dir ./checkpoints \
     --ddp-backend=no_c10d \
     --arch ${arch} \
-    --task translation_nat_multi 
+    --task translation_nat_multi \
     --criterion my_nat_loss \
     --lang-pairs ${lang_pairs} \
     --noise no_noise \
@@ -43,7 +43,7 @@ python ${code}/train.py --fp16 \
     --fixed-validation-seed 7 \
     --keep-last-epochs 5 --keep-best-checkpoints 5 \
     --max-update 600000 \
-    --log-format simple \
+    --log-format simple --log-interval 10 \
     --eval-bleu \
     --eval-bleu-detok moses \
     --eval-bleu-args '{"beam": 1, "max_len_a": 1.2, "max_len_b": 10}' \
@@ -54,7 +54,7 @@ python ${code}/train.py --fp16 \
 
 
 # average checkpoint
-python $code/scripts/average_checkpoints \
+python $code/scripts/average_checkpoints.py \
     --inputs checkpoints \
     --num-best-checkpoints 5 \
     --output checkpoints/checkpoint.avg5.pt

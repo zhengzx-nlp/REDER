@@ -1,15 +1,17 @@
+
 function install_dependencies() {
     export NCCL_IB_DISABLE=0 
     export NCCL_IB_HCA=$ARNOLD_RDMA_DEVICE:1 
     export NCCL_IB_GID_INDEX=3 
     export NCCL_SOCKET_IFNAME=eth0
 
-    basedir=$1
+    cd $(dirname $0)
+    basedir=..
 
     pip3 show torch-imputer 1>/dev/null
     if [ $? != 0 ]; then
         pip install --editable $basedir 
-        pip install tensorboardX tensorflow ninja spicy
+        pip install tensorboardX tensorflow ninja spicy sacremoses
 
         # thirdparty repo
         mkdir -p $basedir/thirdparty
@@ -22,4 +24,4 @@ function install_dependencies() {
     fi
 }
 
-install "`pwd`/.."
+install_dependencies

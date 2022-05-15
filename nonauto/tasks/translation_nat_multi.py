@@ -356,10 +356,10 @@ class TranslationNATMultiTask(TranslationNATTask):
         )
 
     def _maybe_enable_auxiliary_losses(self, model, update_num):
-        if (not model.enable_fba) and self.args.fba and update_num >= self.args.enable_fba_after_update:
-            model.enable_fba = True
-        if (not model.enable_echo_bt) and self.args.echo_bt and update_num >= self.args.enable_echo_bt_after_update:
-            model.enable_echo_bt = True
+        if (not model.enable_fba_loss) and self.args.fba_loss and update_num >= self.args.enable_fba_after_update:
+            model.enable_fba_loss = True
+        if (not model.enable_cycle_loss) and self.args.cycle_loss and update_num >= self.args.enable_cycle_loss_after_update:
+            model.enable_cycle_loss = True
 
     def _per_direction_train_step(self, model, criterion, sample, lang_pair, optimizer, ignore_grad, update_num):
         # sample['prev_target'] = self.inject_noise(sample['target'], update_num=update_num)

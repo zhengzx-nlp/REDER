@@ -1,5 +1,7 @@
 #! /bin/bash
-code="`pwd`/.."
+
+cd $(dirname $0)
+code=..
 data_bin=/path/to/data-bin/iwslt14.tokenized.distil.de-en
 lang_pairs="de-en,en-de"
 src=de
@@ -19,14 +21,14 @@ f=results/$lp
 echo "[$lp] generating best ckpt (b=${beam}, reranking)..."
 at_reranker=path/to/at_model/checkpoints/checkpoint_best.pt
 
-beam=20
+beam=20  # for ctc beam search
 args=(
     ${data_bin} --gen-subset test --fp16 
     --user-dir "${code}/nonauto" 
     --path ${ckpt} 
-    # --ctc-decode-with-beam $beam  # CTC beam search
-    # --path ${ckpt}:${at_reranker} # AT reranking
-    # --iter-decode-with-external-reranker 
+    # --ctc-decode-with-beam $beam         # CTC beam search
+    # --path ${ckpt}:${at_reranker}        # AT reranking
+    # --iter-decode-with-external-reranker # AT reranking
     --task translation_nat_multi 
     --lang-pairs $lang_pairs 
     -s $src -t $tgt 
