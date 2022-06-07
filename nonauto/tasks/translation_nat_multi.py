@@ -500,7 +500,10 @@ class TranslationNATMultiTask(TranslationNATTask):
         if self.args.eval_bleu and not criterion.training:
 
             def sum_logs(key):
-                return sum(log.get(key, 0) for log in logging_outputs)
+                s = sum(log.get(key, 0) for log in logging_outputs)
+                if isinstance(s, torch.Tensor):
+                    s = s.item()
+                return s
 
             def reduce_bleu_per_direction(prefix):
                 counts, totals = [], []

@@ -4,6 +4,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from collections import namedtuple
+import itertools as it
+
 
 import torch
 import numpy as np
@@ -22,7 +24,7 @@ DecoderOut = namedtuple('IterativeRefinementDecoderOut', [
 
 
 
-def ctc_postprocess(tokens, tgt_dict):
+def ctc_postprocess2(tokens, tgt_dict):
     extra_symbols_to_ignore = []
     if hasattr(tgt_dict, "blank_index"): 
         extra_symbols_to_ignore.append(tgt_dict.blank_index)
@@ -38,6 +40,11 @@ def ctc_postprocess(tokens, tgt_dict):
 
     return hyp
 
+def ctc_postprocess(idxs: torch.IntTensor, tgt_dict) -> torch.LongTensor:
+    dtype, device = idxs.dtype, idxs.device
+    idxs = (g[0] for g in it.groupby(idxs.int().tolist()))
+    idxs = filter(lambda x: x != tgt_dict.blank_index, idxs)
+    return torch.tensor(list(idxs), dtype=dtype, device=device)
 
 class IterativeRefinementGenerator(object):
     def __init__(
@@ -307,7 +314,7 @@ class IterativeRefinementGenerator(object):
             # aggregate information from length beam
             finalized = [
                 finalized[np.argmax(
-                    [finalized[self.beam_size * i + j][0]['score'] for j in range(self.beam_size)]
+                    [finalized[self.beam_size * i + j][0]['score'].cpu() for j in range(self.beam_size)]
                 ) + self.beam_size * i]
                 for i in range(len(finalized) // self.beam_size)
             ]
