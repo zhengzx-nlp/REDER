@@ -40,7 +40,10 @@ bash prepare-iwslt14.sh
 
 # Preprocess/binarize the data
 TEXT=/path/to/iwslt14.tokenized.de-en
-fairseq-preprocess --source-lang de --target-lang en \
+src=de
+tgt=en 
+
+fairseq-preprocess --source-lang $src --target-lang $tgt \
     --trainpref $TEXT/train --validpref $TEXT/valid --testpref $TEXT/test \
     --destdir /path/to/data-bin/iwslt14.tokenized.de-en \
     --workers 20 --joint-dictionary
@@ -55,6 +58,7 @@ mkdir $EXP_NAME && cd $EXP_NAME
 
 fairseq-train \
     /path/to/data-bin/iwslt14.tokenized.de-en \
+    -s $src -t $tgt \
     --arch transformer_iwslt_de_en --share-all-embeddings \
     --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 0.0 \
     --lr 5e-4 --lr-scheduler inverse_sqrt --warmup-updates 4000 \
@@ -78,39 +82,46 @@ Translate the whole training data and use the translation results as the dataset
 
  mkdir -p results
 
- fairseq-generate /path/to/data-bin/iwslt14.tokenized.de-en \
-     --gen-subset train \
-     --path checkpoints/checkpoint_best.pt \
-     --batch-size 512 --max-tokens 4096 --beam 4 --remove-bpe \
-     --results-path results/train.kd.en
+fairseq-generate ${data} --fp16 \
+    --gen-subset train -s $src -t $tgt \
+    --path checkpoints/checkpoint_best.pt \
+    --batch-size 1024 --max-tokens 8192 --beam 4 --remove-bpe \
+    > results/train.kd.gen
+
+grep ^S results/train.kd.gen | cut -f2- > train.$src
+grep ^H results/train.kd.gen | cut -f3- > train.kd.$tgt
 ```
 
 Extract plain texts
 ```sh
-output=results/train.kd.en
-grep ^S $output | cut -f2- > train.de
-grep ^H $output | cut -f3- > train.kd.en
+output=results/train.kd.gen
+grep ^S results/train.kd.gen | cut -f2- > train.$src
+grep ^H results/train.kd.gen | cut -f3- > train.kd.$tgt
 
-mkdir /path/to/iwslt.tokenized.distil.de-en
-mv train.de train.kd.en /path/to/iwslt.tokenized.distil.de-en
 ```
 
 Process/binarize data to fairseq format
 ```sh
-ORI_TEXT=iwslt14.tokenized.de-en
-DISTIL_TEXT=iwslt14.tokenized.distil.de-en
+data=/path/to/iwslt14.tokenized.de-en/
+distil_data=/path/to/iwslt14.tokenized.distil.de-en
 
 # apply bpe using original code
-mv ORI_TEXT/code ORI_TEXT/train.de ORI_TEXT/valid.* ORI_TEXT/test.* DISTIL_TEXT 
-cd DISTIL_TEXT
-subword-nmt apply-bpe -c code < train.kd.en > train.en && rm train.kd.en 
+mkdir -p ${distil_data}
+ 
+mv train.$src train.kd.$tgt $distil_data
+ 
+cp $data/code $data/valid.* $data/test.* ${distil_data}
 
-fairseq-preprocess --source-lang de --target-lang en \
+cd $distil_data
+subword-nmt apply-bpe -c code < train.kd.$src > train.$src && rm train.kd.$src
+subword-nmt apply-bpe -c code < train.kd.$tgt > train.$tgt && rm train.kd.$tgt
+
+fairseq-preprocess --source-lang $src --target-lang $tgt \
     --trainpref train --validpref valid --testpref test \
-    --destdir /path/to/data-bin/iwslt14.tokenized.distil.de-en \
-    --workers 20 --joint-dictionary \
-    --srcdict /path/to/data-bin/iwslt14.tokenized.de-en/dict.de.txt \
-    --tgtdict /path/to/data-bin/iwslt14.tokenized.de-en/dict.en.txt 
+    --destdir binarized \
+    --workers 20 \
+    --srcdict $data/binarized/dict.$src.txt \
+    --tgtdict $data/binarized/dict.$tgt.txt 
 
 ```
 
@@ -160,7 +171,8 @@ see `nonauto/run/train_REDER.sh`
 see `nonauto/run/gen_REDER.sh`
 
 
-
+## Example
+Please check out `experiments` folder for an excutable complete example on iwslt14 en-de.
 
 ## Citation
 ```
